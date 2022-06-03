@@ -1,0 +1,351 @@
+unit calcEdit;
+
+interface
+
+uses
+  SysUtils, Classes, Controls, StdCtrls, Dialogs;
+
+type
+  TDTCalcEdit = class(TCustomEdit)
+  private
+      FValor: Currency;
+      FMoeda: string;
+      FDecimal: Integer;
+      FMonetario: Boolean;
+      procedure SetDecimal(const Value: Integer);
+      procedure SetMoeda(const Value: string);
+      procedure SetMonetario(const Value: Boolean);
+      procedure SetValor(const Value: Currency);
+      procedure cmEnter(var message: TcmEnter); message cm_Enter;
+      procedure cmExit(var message: TcmExit); message cm_Exit;
+      procedure FormatarValor;
+      procedure DesformatarValor;
+      function VrCentena(I_Valor: Integer): string;
+      function GetExtenso: string;
+      function Truncar(const Valor: Currency; const Casas: Integer): Currency;
+  protected
+      procedure KeyPress(var Key: Char); override;
+  public
+      constructor Create(AOwner: TComponent); override;
+  published
+      property Decimal: Integer read FDecimal write SetDecimal;
+      property Moeda: string read FMoeda write SetMoeda;
+      property Valor: Currency read FValor write SetValor;
+      property Extenso: string read GetExtenso;
+      property Monetario: Boolean read FMonetario write SetMonetario;
+      property OnChange;
+      property OnClick;
+      property OnContextPopup;
+      property OnDblClick;
+      property OnDragDrop;
+      property OnDragOver;
+      property OnEndDock;
+      property OnEndDrag;
+      property OnEnter;
+      property OnExit;
+      property OnKeyDown;
+      property OnKeyPress;
+      property OnKeyUp;
+      property OnMouseDown;
+      property OnMouseMove;
+      property OnMouseUp;
+      property OnStartDock;
+      property OnStartDrag;
+  end;
+procedure Register;
+
+implementation
+
+var
+DecimalSeparator:char;
+CurrencyString:string;
+CurrencyDecimals:integer;
+
+procedure Register;
+begin
+
+    RegisterComponents('DT Inovacao', [TDTCalcEdit]);
+
+end;
+
+{ TDTCalcEdit }
+
+procedure TDTCalcEdit.cmEnter(var message: TcmEnter);
+begin
+  DesformatarValor;
+  self.SetFocus;
+  self.HideSelection := false;
+  self.SelectAll;
+  inherited;
+end;
+
+procedure TDTCalcEdit.cmExit(var message: TcmExit);
+begin
+  Self.Text := Trim( Self.Text );
+
+  if ( Self.Text = '-' ) or ( Self.Text = '+' )
+      then Self.Text := Self.Text + '0';
+
+  if ( Self.Text = '' ) then Self.FValor := 0
+  else Self.FValor := StrToFloat( Self.Text );
+  FormatarValor;
+
+  inherited;
+end;
+
+constructor TDTCalcEdit.Create(AOwner: TComponent);
+begin
+  inherited;
+  DecimalSeparator := ',';
+  CurrencyDecimals := 2;
+  Self.FDecimal    := CurrencyDecimals;
+  Self.FMoeda      := CurrencyString;
+  Self.FValor      := 0;
+  Self.FMonetario  := True;
+  Self.Text        := '0,00';
+  self.Alignment   := taRightJustify;
+  FormatarValor;
+end;
+
+procedure TDTCalcEdit.DesformatarValor;
+var
+  Formato: string;
+  X:Double;
+begin
+  X := 0.01 * Trunc(100 * self.Valor);
+  self.Valor := x;
+  self.Text  := FloatToStr(x);
+//  Formato := '%.' + IntToStr(Self.FDecimal) + 'f';
+//  Self.Text := Format(Formato, [Self.FValor]);
+end;
+
+procedure TDTCalcEdit.FormatarValor;
+var
+  Formato: string;
+  X:Double;
+begin
+  X := 0.01 * Trunc(100 * self.Valor);
+  self.Valor := x;
+  self.Text  := FloatToStr(x);
+  //  Formato := '%.' + IntToStr(Self.FDecimal) + 'n';
+//  Self.Text := Format(Formato, [Self.FValor]);
+end;
+
+function TDTCalcEdit.GetExtenso: string;
+var
+  Cifra: array[1..4, 1..2] of string;
+  S_Valor, Retorno, PosNeg: string;
+  IValor: integer;
+begin
+  S_Valor := Format('%f', [Self.FValor]);
+  if ( StrToFloat(S_Valor) < 0 ) then PosNeg := ' - Negativo'
+  else PosNeg := '';
+  S_Valor := StringReplace(S_Valor, '-', '', [rfReplaceAll]);
+  Result := 'Zero';
+  if ( StrToFloat( S_Valor ) = 0 ) then Exit;
+  if( Length( S_Valor ) > 12 ) then
+      begin
+          MessageDlg('Valor máximo válido "999.999.999,99"',
+              mtError, [mbOk], 0);
+          Exit;
+      end;
+  Cifra[01,01] := ' Milhão';
+  Cifra[01,02] := ' Milhões';
+  Cifra[02,01] := ' Mil';
+  Cifra[02,02] := ' Mil';
+  Cifra[03,01] := ' Real';
+  Cifra[03,02] := ' Reais';
+  Cifra[04,01] := ' Centavo';
+  Cifra[04,02] := ' Centavos';
+  Retorno := '';
+  S_Valor := Copy('000000000,00', 1, 12 -
+      Length( S_Valor )) + S_Valor;
+  if ( StrToFloat( Copy(S_Valor, 11, 2) ) > 0 ) then
+      begin
+          IValor := StrToInt( Copy(S_Valor, 11, 2) );
+          Retorno := VrCentena( IValor );
+          if ( IValor = 1 ) then Retorno := Retorno + Cifra[04,01]
+          else Retorno := Retorno + Cifra[04,02];
+      end;
+  if ( StrToFloat( Copy(S_Valor, 1, 9) ) <> 0 ) then
+      begin
+          if ( Length( Retorno ) > 0 )
+              then Retorno := ' e ' + Retorno;
+          if ( FMonetario ) then
+              begin
+                  if ( StrToFloat( Copy(S_Valor, 1, 9) ) = 1 )
+                      then Retorno := Cifra[03,01] + Retorno;
+                  if ( StrToFloat( Copy(S_Valor, 1, 9) ) > 1 )
+                      then Retorno := Cifra[03,02] + Retorno;
+              end;
+      end;
+  if ( StrToFloat( Copy(S_Valor, 7, 3) ) > 0 ) then
+      begin
+          IValor := StrToInt( Copy(S_Valor, 7, 3) );
+          Retorno := VrCentena( IValor ) + Retorno;
+      end;
+  if ( StrToFloat( Copy(S_Valor, 4, 6) ) >= 1000 ) then
+      begin
+          IValor := StrToInt( Copy(S_Valor, 4, 3) );
+          if ( StrToFloat( Copy(S_Valor, 7, 3) ) > 0 )
+              then Retorno := ' e ' + Retorno;
+          Retorno := VrCentena( IValor ) + Cifra[02,01] + Retorno;
+      end;
+  if ( StrToFloat( Copy(S_Valor, 1, 9) ) >= 1000000 ) then
+      begin
+          IValor := StrToInt( Copy(S_Valor, 1, 3) );
+          if ( StrToFloat( Copy(S_Valor, 4, 6) ) > 0 )
+              then Retorno := ' e ' + Retorno;
+          if ( IValor = 1 ) then Retorno := Cifra[01,01] + Retorno
+          else Retorno := Cifra[01,02] + Retorno;
+          Retorno := VrCentena( IValor ) + Retorno;
+      end;
+  Result := Retorno + PosNeg;
+end;
+
+procedure TDTCalcEdit.KeyPress(var Key: Char);
+begin
+  inherited;
+  if ( Key in [',','.'] ) then
+      begin
+          Key := DecimalSeparator;
+          if ( Pos(DecimalSeparator, Self.Text) > 1 ) then
+          Key := #0;
+      end
+  else if ( Key in [#43, #45] ) then
+  Self.Text := ''
+  else if not( Key in ['0'..'9', #8, #13, #43, #45] ) then
+  Key := #0
+end;
+
+procedure TDTCalcEdit.SetDecimal(const Value: Integer);
+begin
+  FDecimal := Value;
+end;
+
+procedure TDTCalcEdit.SetMoeda(const Value: string);
+begin
+  FMoeda := Value;
+end;
+
+procedure TDTCalcEdit.SetMonetario(const Value: Boolean);
+begin
+  FMonetario := Value;
+end;
+
+procedure TDTCalcEdit.SetValor(const Value: Currency);
+begin
+  FValor    := Value;
+  self.Text := floattostr(value);
+  DesformatarValor;
+end;
+
+function TDTCalcEdit.Truncar(const Valor: Currency;
+  const Casas: Integer): Currency;
+var
+  ValorS: String;
+  NumInt, NumFrac, Num: String;
+  Y: Integer;
+begin
+  Result := 0;
+  ValorS := CurrToStr(Valor);
+  //Pegar a parte fracionária
+  Y := Pos(DecimalSeparator, ValorS);
+  if Y > 0 then
+  begin
+    NumInt := Copy(ValorS, 1, Y - 1);
+    NumFrac := Copy(ValorS, Y + 1, Casas);
+  end//if
+  else
+  begin
+    NumInt  := ValorS;
+    NumFrac := '';
+  end;//if
+
+  //Preenche com zeros se necessário
+  while Length(NumFrac) < Casas do
+    NumFrac := NumFrac + '0';
+
+  Num := NumInt;
+  if Trim(NumFrac) <> '' then
+    Num := Num + ',' + NumFrac;
+
+  if not TryStrToCurr(Num, Result) then
+    raise Exception.Create(QuotedStr(Num) + ' não é um valor monetário valido.');
+end;
+
+function TDTCalcEdit.VrCentena(I_Valor: Integer): string;
+var
+  IValor: array[1..3] of Integer;
+  Unidade, Dezena, DezVinte, Centena: array[1..9] of string;
+  SValor, Retorno: string;
+begin
+  Result := '';
+  if ( I_Valor = 0 ) then Exit;
+  if ( I_Valor = 100 ) then
+      begin
+          Result := 'Cem';
+          Exit;
+      end;
+  SValor := Copy( '000', 1, 3 - Length(IntToStr( I_Valor ) ) ) + IntToStr( I_Valor );
+  IValor[01] := StrToInt( Copy( SValor, 1, 1 ) );
+  IValor[02] := StrToInt( Copy( SValor, 2, 1 ) );
+  IValor[03] := StrToInt( Copy( SValor, 3, 1 ) );
+  Unidade[01] := 'Um';
+  Unidade[02] := 'Dois';
+  Unidade[03] := 'Três';
+  Unidade[04] := 'Quatro';
+  Unidade[05] := 'Cinco';
+  Unidade[06] := 'Seis';
+  Unidade[07] := 'Sete';
+  Unidade[08] := 'Oito';
+  Unidade[09] := 'Nove';
+  Dezena[01] := 'Dez';
+  Dezena[02] := 'Vinte';
+  Dezena[03] := 'Trinta';
+  Dezena[04] := 'Quarenta';
+  Dezena[05] := 'Cinquenta';
+  Dezena[06] := 'Sessenta';
+  Dezena[07] := 'Setenta';
+  Dezena[08] := 'Oitenta';
+  Dezena[09] := 'Noventa';
+  DezVinte[01] := 'Onze';
+  DezVinte[02] := 'Doze';
+  DezVinte[03] := 'Treze';
+  DezVinte[04] := 'Quatorze';
+  DezVinte[05] := 'Quinze';
+  DezVinte[06] := 'Dezeseis';
+  DezVinte[07] := 'Dezesete';
+  DezVinte[08] := 'Dezoito';
+  DezVinte[09] := 'Dezenove';
+  Centena[01] := 'Cento';
+  Centena[02] := 'Duzentos';
+  Centena[03] := 'Trezentos';
+  Centena[04] := 'Quatrocentos';
+  Centena[05] := 'Quinhentos';
+  Centena[06] := 'Seiscentos';
+  Centena[07] := 'Setecentos';
+  Centena[08] := 'Oitocentos';
+  Centena[09] := 'Novecentos';
+  Retorno := '';
+  if ( IValor[01] > 0 ) then
+      begin
+          Retorno := Centena[ IValor[01] ];
+          if ( IValor[02] + IValor[03] > 0 ) then Retorno :=
+              Retorno + ' e ';
+      end;
+  if ( IValor[02] = 1 ) and ( IValor[03] <> 0 )
+      then Retorno := Retorno + DezVinte[ IValor[03] ]
+  else
+      begin
+          if ( IValor[02] > 0 ) then
+              begin
+                  Retorno := Retorno + Dezena[ IValor[02] ];
+                  if( IValor[03] > 0 ) then Retorno := Retorno + ' e ';
+              end;
+          if ( IValor[03] > 0 ) then Retorno :=
+              Retorno + Unidade[ IValor[03] ];
+      end;
+  Result := Retorno;
+end;
+end.

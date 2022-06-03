@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{DDE521F0-766E-45E3-9B4F-6517C413DC53}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="DTCalcEdit.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Demo\Project1.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="DTCalcEdit">
+        <MSBuild Projects="DTCalcEdit.dproj"/>
+    </Target>
+    <Target Name="DTCalcEdit:Clean">
+        <MSBuild Projects="DTCalcEdit.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DTCalcEdit:Make">
+        <MSBuild Projects="DTCalcEdit.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Project1">
+        <MSBuild Projects="Demo\Project1.dproj"/>
+    </Target>
+    <Target Name="Project1:Clean">
+        <MSBuild Projects="Demo\Project1.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Project1:Make">
+        <MSBuild Projects="Demo\Project1.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="DTCalcEdit;Project1"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="DTCalcEdit:Clean;Project1:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="DTCalcEdit:Make;Project1:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
